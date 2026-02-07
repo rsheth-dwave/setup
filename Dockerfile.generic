@@ -1,0 +1,37 @@
+# docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t test -f Dockerfile.generic .
+
+FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
+
+# Avoid interactive apt prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    ca-certificates \
+    vim \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Optional: make pip quieter / faster
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=0
+
+# Install Python deps
+COPY requirements.txt /tmp/requirements.txt
+RUN python -m pip install --upgrade pip && \
+    pip install -r /tmp/requirements.txt
+
+# Mount project here
+WORKDIR /work
+
+ARG UID=1000
+ARG GID=1000
+RUN groupadd -g ${GID} app && useradd -m -u ${UID} -g ${GID} -s /bin/bash app \
+ && usermod -aG sudo app \
+ && echo 'app ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/app \
+ && chmod 0440 /etc/sudoers.d/app
+USER app
+
+# Default shell entrypoint (can override in docker run)
+CMD ["bash"]
