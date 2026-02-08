@@ -6,35 +6,37 @@ FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    curl \
-    ca-certificates \
-    vim \
-    sudo \
-    && rm -rf /var/lib/apt/lists/*
+    git curl ca-certificates vim sudo \
+ && rm -rf /var/lib/apt/lists/*
 
 # Optional: make pip quieter / faster
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=0
 
-# Install Python deps
+# Install project-specific Python deps
 COPY requirements.txt /tmp/requirements.txt
-RUN python -m pip install --upgrade pip && \
-    pip install -r /tmp/requirements.txt
+RUN python -m pip install --upgrade pip && pip install -r /tmp/requirements.txt
 
-COPY --from=setup setup.sh /tmp/setup.sh
-RUN chmod +x /tmp/setup.sh && bash /tmp/setup.sh
-
-# Mount project here
-WORKDIR /work
-
+# ---- create user ----
 ARG UID=1000
 ARG GID=1000
-RUN groupadd -g ${GID} app && useradd -m -u ${UID} -g ${GID} -s /bin/bash app \
+RUN groupadd -g ${GID} app \
+ && useradd -m -u ${UID} -g ${GID} -s /bin/bash app \
  && usermod -aG sudo app \
  && echo 'app ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/app \
- && chmod 0440 /etc/sudoers.d/app
-USER app
+ && chmod 0440 /etc/sudoers.d/app \
+ # make sure DEBIAN_FRONTEND survives sudo if setup.sh relies on it
+ && echo 'Defaults env_keep += "DEBIAN_FRONTEND"' > /etc/sudoers.d/keep-debian-frontend \
+ && chmod 0440 /etc/sudoers.d/keep-debian-frontend
 
-# Default shell entrypoint (can override in docker run)
+# ---- run setup.sh as app so ~ == /home/app ----
+COPY --from=setup setup.sh /tmp/setup.sh
+RUN chmod +x /tmp/setup.sh \
+ && su - app -c "bash /tmp/setup.sh"
+
+ENV HOME=/home/app
+ENV USER=app
+
+WORKDIR /work
+USER app
 CMD ["bash"]
