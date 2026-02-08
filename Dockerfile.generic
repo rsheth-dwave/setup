@@ -1,4 +1,4 @@
-# docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t test -f Dockerfile.generic .
+# docker build --build-arg UID=$(id -u) --build-arg GID=$(id -g) -t bld --build-context setup=../setup -f ../setup/Dockerfile.generic .
 
 FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
 
@@ -21,6 +21,9 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
 COPY requirements.txt /tmp/requirements.txt
 RUN python -m pip install --upgrade pip && \
     pip install -r /tmp/requirements.txt
+
+COPY --from=setup setup.sh /tmp/setup.sh
+RUN chmod +x /tmp/setup.sh && bash /tmp/setup.sh
 
 # Mount project here
 WORKDIR /work
