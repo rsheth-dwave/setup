@@ -37,6 +37,14 @@ RUN chmod +x /tmp/setup.sh \
 ENV HOME=/home/app
 ENV USER=app
 
+RUN python -m pip install -U jupyterlab ipykernel matplotlib seaborn
+
+EXPOSE 8888
+
+COPY --from=setup start-with-jupyter.sh /usr/local/bin/start-with-jupyter.sh
+RUN chmod +x /usr/local/bin/start-with-jupyter.sh
+
 WORKDIR /work
 USER app
-CMD ["bash"]
+# Keep bash as the foreground process, but start Jupyter first
+CMD ["/usr/local/bin/start-with-jupyter.sh", "bash"]
